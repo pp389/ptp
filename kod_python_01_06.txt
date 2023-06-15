@@ -1,0 +1,93 @@
+#Piotr Płaneta, Tomasz Ruchałowski, Paweł Soboń 01.06.2023 laboratorium PTP
+import tkinter as tk
+import serial
+import serial.tools.list_ports
+from tkinter import Tk, ttk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+#zawiera dane pobrane z portu COM
+data = []
+
+#czy wykres ma być rysowany?
+isRunning = False
+
+#ustaw zmienną globalną isRunning na true - wykres będzie rysowany
+def plot_start():
+    global isRunning
+    isRunning = True
+
+#ustaw zmienną globalną isRunning na false - wykres nie będzie rysowany
+def plot_stop():
+    global isRunning
+    isRunning = False
+
+#wyświetla dane pobrane z portu COM na wykresie
+def plot_data():
+    #utworzenie obiektu serial_port - reprezentuje on port COM, numer portu pobierany z listy portów
+    serial_port = serial.Serial(combobox.get(), 115200, timeout=1)
+    
+    #jeżeli wykres ma być wyświetlany
+    if isRunning:
+        #odczyt wartości z portu COM
+        res = serial_port.readline().decode('UTF-8')
+        #konwersja wartości na float (pobrana jest jako string)
+        value = float(res)
+        #dołącz wartośc do tablicy z danymi
+        data.append(value)
+        #wyczyść wykres
+        dataSubplot.clear()
+        #ustaw tytuł wykresu
+        dataSubplot.set_title('Wilgotność [%]')
+        #ilośc wartości, które mają być pokazane na wykresie
+        x = range(len(data))
+        #wyświetl dane na wykresie
+        dataSubplot.plot(x, data)
+        canvas.draw()
+    #zamknij port COM
+    serial_port.close()
+    root.after(1, plot_data)
+
+
+#okno główne
+root: Tk = tk.Tk()
+root.wm_title("Wilgotność")
+
+#konfiguracja wykresu
+figure = Figure(figsize=(10,4), dpi = 80)
+dataSubplot = figure.add_subplot(111)
+#ustawienie tytułu wykresu
+dataSubplot.set_title('Wilgotność [%]')
+
+canvas = FigureCanvasTkAgg(figure, master=root)
+canvas.draw()
+canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+#konfiguracja przycisków
+#najpierw przycisk "Stop" - na wciśnięcie wywoływane plot_stop
+buttonStop = tk.Button(master=root, text="Stop", command=plot_stop)
+#ma być widoczny na dole okna
+buttonStop.pack(side='bottom')
+#potem przycisk "Start" - - na wciśnięcie wywoływane plot_start
+buttonStart = tk.Button(master=root, text="Start", command=plot_start)
+#ma być widoczny na dole okna
+buttonStart.pack(side='bottom')
+
+#combobox - rozwijana lista zawierająca dostępne porty COM i umożliwiająca ich wybór
+combobox = ttk.Combobox(root)
+#combobox ma być widoczny na dole okna
+combobox.pack(side=tk.BOTTOM)
+#pobierz listę dostępnych portów COM
+com_ports = serial.tools.list_ports.comports()
+ports_list = []
+
+for port, desc, hwid in sorted(com_ports):
+    ports_list.append(port)
+
+#ustaw listę portów jako dane wyświetlane w combobox
+combobox['values'] = ports_list
+combobox.set(ports_list[0])
+
+root.after(1, plot_data)
+#pętla główna
+root.mainloop()
